@@ -12,7 +12,6 @@
 #
 # Author: Daniel Antonsen @rootloot
 
-import sys
 import re
 import argparse
 
@@ -26,14 +25,14 @@ def extract_and_process_nmap_reports(filename, unique_hosts=False):
     with open(filename, 'r') as file:
         content = file.read()
     
-    pattern = r'Nmap scan report for (?:([^\s]+) \((.*?)\)|(.*?))\n'
+    pattern = r'Nmap scan report for (?:([^\s]+) \((.*?)\)|(.*?))\n((?:(?!\n\n)[\s\S])+)'
     
-    matches = re.findall(pattern, content, re.DOTALL)
+    matches = re.findall(pattern, content)
     
     host_port_pairs = set()
     ip_hostname_map = {}
     
-    for match in matches:
+    for match in matches:    
         hostname_or_ip = match[0] if match[0] else (match[1] if match[1] else match[2])
         ip = match[1] or match[2]
         
@@ -42,14 +41,11 @@ def extract_and_process_nmap_reports(filename, unique_hosts=False):
             continue
         ip_hostname_map[ip] = hostname_or_ip
         
-        ports_section_search = re.search(r'PORT.*?\n((?:\d+/.*?\n)+)', content[content.find(match[0]):], re.DOTALL)
-        if ports_section_search:
-            port_lines = ports_section_search.group(1).splitlines()
-            for port_line in port_lines:
-                port_search = re.search(r'(\d+)/tcp\s+open', port_line)
-                if port_search:
-                    port = port_search.group(1)
-                    host_port_pairs.add(f"{hostname_or_ip}:{port}")
+        port_section = match[3]
+        ports_search = re.findall(r'(\d+)/tcp\s+open', port_section)
+        if ports_search:
+            for port in ports_search:
+                host_port_pairs.add(f"{hostname_or_ip}:{port}")
     
     # Sorting and printing the unique host:port pairs
     for host_port in sorted(host_port_pairs):
@@ -67,4 +63,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
